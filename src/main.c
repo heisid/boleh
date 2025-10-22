@@ -1,125 +1,99 @@
 #include "raylib.h"
-#include <math.h>
+#include "raymath.h"
+#include <stdlib.h>
 
-#define RAYGUI_IMPLEMENTATION
-#include "raygui.h" // Required for GUI controls
+#define GRAVITY_CONSTANT 80.0
 
-//----------------------------------------------------------------------------------
-// Types and Structures Definition
-//----------------------------------------------------------------------------------
-typedef struct {
-  Vector2 start;
-  Vector2 end;
-  float angle;
-  float length;
-} Branch;
+typedef struct CelestialObject {
+  Vector2 pos;
+  Vector2 vel;
+  Color color;
+  float radius;
+  float mass;
+} CelestialObject;
 
-//------------------------------------------------------------------------------------
-// Program main entry point
-//------------------------------------------------------------------------------------
-int main(void) {
-  // Initialization
-  //--------------------------------------------------------------------------------------
-  const int screenWidth = 800;
-  const int screenHeight = 450;
+void doPairInteraction(CelestialObject **celestialObjectList, int lenList);
+void interactGravity(CelestialObject *obj1, CelestialObject *obj2);
+void updatePosition(CelestialObject **obj, int lenList);
 
-  InitWindow(screenWidth, screenHeight,
-             "raylib [shapes] example - recursive tree");
+int main() {
+  const int screenWidth = 2000;
+  const int screenHeight = 1000;
 
-  Vector2 start = {(screenWidth / 2.0f) - 125.0f, (float)screenHeight};
-  float angle = 40.0f;
-  float thick = 1.0f;
-  float treeDepth = 10.0f;
-  float branchDecay = 0.66f;
-  float length = 120.0f;
-  bool bezier = false;
+  SetConfigFlags(FLAG_MSAA_4X_HINT);
+  InitWindow(screenWidth, screenHeight, "Celestial Mechanics Simulator");
+  SetTargetFPS(60);
 
-  SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-  //--------------------------------------------------------------------------------------
+  float middleX = GetScreenWidth() / 2.0f;
+  float middleY = GetScreenHeight() / 2.0f;
 
-  // Main game loop
-  while (!WindowShouldClose()) // Detect window close button or ESC key
-  {
+  float starSize = 10.0;
+
+  CelestialObject alpha = {.pos = {.x = middleX, .y = middleY},
+                           .vel = {.x = 0, .y = 0},
+                           .color = YELLOW,
+                           .radius = starSize,
+                           .mass = 1000};
+  CelestialObject beta = {.pos = {.x = middleX + 50, .y = middleY + 50},
+                          .vel = {.x = 50, .y = -50},
+                          .color = RED,
+                          .radius = starSize,
+                          .mass = 1000};
+  CelestialObject gamma = {.pos = {.x = middleX - 50, .y = middleY - 50},
+                           .vel = {.x = -30, .y = 20},
+                           .color = GREEN,
+                           .radius = starSize,
+                           .mass = 1000};
+
+  CelestialObject *objCollection[] = {&alpha, &beta, &gamma};
+
+  while (!WindowShouldClose()) {
     // Update
-    //----------------------------------------------------------------------------------
-    float theta = angle * DEG2RAD;
-    int maxBranches = (int)(powf(2, floorf(treeDepth)));
-    Branch branches[1030] = {0};
-    int count = 0;
-
-    Vector2 initialEnd = {start.x + length * sinf(0.0f),
-                          start.y - length * cosf(0.0f)};
-    branches[count++] = (Branch){start, initialEnd, 0.0f, length};
-
-    for (int i = 0; i < count; i++) {
-      Branch branch = branches[i];
-      if (branch.length < 2)
-        continue;
-
-      float nextLength = branch.length * branchDecay;
-
-      if (count < maxBranches && nextLength >= 2) {
-        Vector2 branchStart = branch.end;
-
-        float angle1 = branch.angle + theta;
-        Vector2 branchEnd1 = {branchStart.x + nextLength * sinf(angle1),
-                              branchStart.y - nextLength * cosf(angle1)};
-        branches[count++] =
-            (Branch){branchStart, branchEnd1, angle1, nextLength};
-
-        float angle2 = branch.angle - theta;
-        Vector2 branchEnd2 = {branchStart.x + nextLength * sinf(angle2),
-                              branchStart.y - nextLength * cosf(angle2)};
-        branches[count++] =
-            (Branch){branchStart, branchEnd2, angle2, nextLength};
-      }
-    }
-    //----------------------------------------------------------------------------------
-    // Draw
-    //----------------------------------------------------------------------------------
+    doPairInteraction(objCollection,
+                      sizeof objCollection / sizeof objCollection[0]);
+    updatePosition(objCollection,
+                   sizeof objCollection / sizeof objCollection[0]);
+    // Render
     BeginDrawing();
+    ClearBackground(BLACK);
 
-    ClearBackground(RAYWHITE);
-
-    for (int i = 0; i < count; i++) {
-      Branch branch = branches[i];
-      if (branch.length >= 2) {
-        if (bezier)
-          DrawLineBezier(branch.start, branch.end, thick, RED);
-        else
-          DrawLineEx(branch.start, branch.end, thick, RED);
-      }
-    }
-
-    DrawLine(580, 0, 580, GetScreenHeight(), (Color){218, 218, 218, 255});
-    DrawRectangle(580, 0, GetScreenWidth(), GetScreenHeight(),
-                  (Color){232, 232, 232, 255});
-
-    // Draw GUI controls
-    //------------------------------------------------------------------------------
-    GuiSliderBar((Rectangle){640, 40, 120, 20}, "Angle",
-                 TextFormat("%.0f", angle), &angle, 0, 180);
-    GuiSliderBar((Rectangle){640, 70, 120, 20}, "Length",
-                 TextFormat("%.0f", length), &length, 12.0f, 240.0f);
-    GuiSliderBar((Rectangle){640, 100, 120, 20}, "Decay",
-                 TextFormat("%.2f", branchDecay), &branchDecay, 0.1f, 0.78f);
-    GuiSliderBar((Rectangle){640, 130, 120, 20}, "Depth",
-                 TextFormat("%.0f", treeDepth), &treeDepth, 1.0f, 10.f);
-    GuiSliderBar((Rectangle){640, 160, 120, 20}, "Thick",
-                 TextFormat("%.0f", thick), &thick, 1, 8);
-    GuiCheckBox((Rectangle){640, 190, 20, 20}, "Bezier", &bezier);
-    //------------------------------------------------------------------------------
-
-    DrawFPS(10, 10);
+    DrawCircleV(alpha.pos, alpha.radius, alpha.color);
+    DrawCircleV(beta.pos, beta.radius, beta.color);
+    DrawCircleV(gamma.pos, gamma.radius, gamma.color);
 
     EndDrawing();
-    //----------------------------------------------------------------------------------
   }
 
-  // De-Initialization
-  //--------------------------------------------------------------------------------------
-  CloseWindow(); // Close window and OpenGL context
-  //--------------------------------------------------------------------------------------
+  CloseWindow();
 
-  return 0;
+  return EXIT_SUCCESS;
+}
+
+void doPairInteraction(CelestialObject **listCelestialObj, int listLen) {
+  for (int i = 0; i <= listLen - 2; i++) {
+    for (int j = i + 1; j <= listLen - 1; j++) {
+      interactGravity(listCelestialObj[i], listCelestialObj[j]);
+    }
+  }
+}
+
+void updatePosition(CelestialObject **objList, int listLen) {
+  float deltaTime = GetFrameTime();
+  for (int i = 0; i <= listLen - 1; i++) {
+    CelestialObject *obj = objList[i];
+    obj->pos = Vector2Add(obj->pos, Vector2Scale(obj->vel, deltaTime));
+  }
+}
+
+void interactGravity(CelestialObject *obj1, CelestialObject *obj2) {
+  float deltaTime = GetFrameTime();
+  // Change object1 state by object2 influence
+  Vector2 distanceVec = Vector2Subtract(obj2->pos, obj1->pos);
+  float invSqrDist = 1.0 / Vector2LengthSqr(distanceVec);
+  Vector2 gravityForce1 = Vector2Scale(
+      distanceVec, (GRAVITY_CONSTANT * obj1->mass * obj2->mass * invSqrDist));
+
+  Vector2 accel1 = Vector2Scale(gravityForce1, 1.0 / obj1->mass);
+  Vector2 deltaVel1 = Vector2Scale(accel1, deltaTime);
+  obj1->vel = Vector2Add(obj1->vel, deltaVel1);
 }
