@@ -407,3 +407,4 @@ Makefile
 *.swn
 
 compile_commands.json
+build/external/
