@@ -2,7 +2,8 @@
 #include "raymath.h"
 #include <stdlib.h>
 
-#define GRAVITY_CONSTANT 80.0
+#define GRAVITY_CONSTANT 8.0
+#define MASS_RADIUS_RATIO 200;
 
 typedef struct CelestialObject {
   Vector2 pos;
@@ -15,10 +16,11 @@ typedef struct CelestialObject {
 void doPairInteraction(CelestialObject **celestialObjectList, int lenList);
 void interactGravity(CelestialObject *obj1, CelestialObject *obj2);
 void updatePosition(CelestialObject **obj, int lenList);
+void setRadius(CelestialObject *obj);
 
 int main() {
-  const int screenWidth = 2000;
-  const int screenHeight = 1000;
+  const int screenWidth = 1000;
+  const int screenHeight = 800;
 
   SetConfigFlags(FLAG_MSAA_4X_HINT);
   InitWindow(screenWidth, screenHeight, "Celestial Mechanics Simulator");
@@ -27,23 +29,21 @@ int main() {
   float middleX = GetScreenWidth() / 2.0f;
   float middleY = GetScreenHeight() / 2.0f;
 
-  float starSize = 10.0;
-
   CelestialObject alpha = {.pos = {.x = middleX, .y = middleY},
                            .vel = {.x = 0, .y = 0},
                            .color = YELLOW,
-                           .radius = starSize,
-                           .mass = 1000};
-  CelestialObject beta = {.pos = {.x = middleX + 50, .y = middleY + 50},
-                          .vel = {.x = 50, .y = -50},
+                           .mass = 4000};
+  setRadius(&alpha);
+  CelestialObject beta = {.pos = {.x = middleX + 300, .y = middleY},
+                          .vel = {.x = 0, .y = -200},
                           .color = RED,
-                          .radius = starSize,
                           .mass = 1000};
-  CelestialObject gamma = {.pos = {.x = middleX - 50, .y = middleY - 50},
-                           .vel = {.x = -30, .y = 20},
+  setRadius(&beta);
+  CelestialObject gamma = {.pos = {.x = middleX - 300, .y = middleY},
+                           .vel = {.x = 0, .y = 200},
                            .color = GREEN,
-                           .radius = starSize,
                            .mass = 1000};
+  setRadius(&gamma);
 
   CelestialObject *objCollection[] = {&alpha, &beta, &gamma};
 
@@ -69,9 +69,15 @@ int main() {
   return EXIT_SUCCESS;
 }
 
+void setRadius(CelestialObject *obj) {
+  obj->radius = obj->mass / MASS_RADIUS_RATIO;
+}
+
 void doPairInteraction(CelestialObject **listCelestialObj, int listLen) {
-  for (int i = 0; i <= listLen - 2; i++) {
-    for (int j = i + 1; j <= listLen - 1; j++) {
+  for (int i = 0; i < listLen; i++) {
+    for (int j = 0; j < listLen; j++) {
+      if (i == j)
+        continue;
       interactGravity(listCelestialObj[i], listCelestialObj[j]);
     }
   }
