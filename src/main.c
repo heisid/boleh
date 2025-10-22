@@ -2,8 +2,8 @@
 #include "raymath.h"
 #include <stdlib.h>
 
-#define GRAVITY_CONSTANT 8.0
-#define MASS_RADIUS_RATIO 200;
+#define GRAVITY_CONSTANT 200.0
+#define MASS_RADIUS_RATIO 200
 
 typedef struct CelestialObject {
   Vector2 pos;
@@ -34,13 +34,13 @@ int main() {
                            .color = YELLOW,
                            .mass = 4000};
   setRadius(&alpha);
-  CelestialObject beta = {.pos = {.x = middleX + 300, .y = middleY},
-                          .vel = {.x = 0, .y = -200},
+  CelestialObject beta = {.pos = {.x = middleX + 200, .y = middleY},
+                          .vel = {.x = 0, .y = -50},
                           .color = RED,
                           .mass = 1000};
   setRadius(&beta);
-  CelestialObject gamma = {.pos = {.x = middleX - 300, .y = middleY},
-                           .vel = {.x = 0, .y = 200},
+  CelestialObject gamma = {.pos = {.x = middleX - 200, .y = middleY},
+                           .vel = {.x = 0, .y = 50},
                            .color = GREEN,
                            .mass = 1000};
   setRadius(&gamma);
@@ -95,9 +95,10 @@ void interactGravity(CelestialObject *obj1, CelestialObject *obj2) {
   float deltaTime = GetFrameTime();
   // Change object1 state by object2 influence
   Vector2 distanceVec = Vector2Subtract(obj2->pos, obj1->pos);
+  Vector2 direction = Vector2Normalize(distanceVec);
   float invSqrDist = 1.0 / Vector2LengthSqr(distanceVec);
   Vector2 gravityForce1 = Vector2Scale(
-      distanceVec, (GRAVITY_CONSTANT * obj1->mass * obj2->mass * invSqrDist));
+      direction, (GRAVITY_CONSTANT * obj1->mass * obj2->mass * invSqrDist));
 
   Vector2 accel1 = Vector2Scale(gravityForce1, 1.0 / obj1->mass);
   Vector2 deltaVel1 = Vector2Scale(accel1, deltaTime);
