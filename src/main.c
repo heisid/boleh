@@ -3,12 +3,13 @@
 #include <stdlib.h>
 #include <time.h>
 
-const float GRAVITY_CONSTANT = 900.0;
+const float GRAVITY_CONSTANT = 500.0;
 const float MASS_RADIUS_RATIO = 200.0;
 const float MIN_DISTANCE = 10.0f;
 
 const int SCREEN_WIDTH = 1000;
 const int SCREEN_HEIGHT = 800;
+const int FIELD_RESOLUTION = 20;
 
 typedef struct CelestialObject {
   Vector2 pos;
@@ -24,6 +25,8 @@ void checkCollision(CelestialObject *obj1, CelestialObject *obj2);
 void updatePosition(CelestialObject **obj, int lenList);
 void setRadius(CelestialObject *obj);
 CelestialObject **generateRandomObjects(int count);
+void drawGravityField(CelestialObject **objList, int objCount);
+Color getPotentialColor(float potential);
 
 int main() {
   srand(time(NULL));
@@ -46,6 +49,8 @@ int main() {
     BeginDrawing();
     ClearBackground(BLACK);
 
+    drawGravityField(objCollection, objCount);
+
     for (int i = 0; i < objCount; i++) {
       DrawCircleV(objCollection[i]->pos, objCollection[i]->radius,
                   objCollection[i]->color);
@@ -62,6 +67,58 @@ int main() {
   CloseWindow();
 
   return EXIT_SUCCESS;
+}
+
+void drawGravityField(CelestialObject **objList, int objCount) {
+  for (int x = 0; x < SCREEN_WIDTH; x += FIELD_RESOLUTION) {
+    for (int y = 0; y < SCREEN_HEIGHT; y += FIELD_RESOLUTION) {
+      Vector2 testPos = {x + FIELD_RESOLUTION / 2.0f,
+                         y + FIELD_RESOLUTION / 2.0f};
+      float totalPotential = 0.0f;
+
+      for (int i = 0; i < objCount; i++) {
+        Vector2 diff = Vector2Subtract(objList[i]->pos, testPos);
+        float dist = Vector2Length(diff);
+
+        if (dist < 1.0f)
+          dist = 1.0f;
+
+        // Gravitational potential: U = -G*M/r
+        totalPotential += (GRAVITY_CONSTANT * objList[i]->mass) / dist;
+      }
+
+      Color fieldColor = getPotentialColor(totalPotential);
+      DrawRectangle(x, y, FIELD_RESOLUTION, FIELD_RESOLUTION, fieldColor);
+    }
+  }
+}
+
+Color getPotentialColor(float potential) {
+  // Normalize potential to a reasonable range (0-1)
+  float normalized = potential / 150000.0f;
+  if (normalized > 1.0f)
+    normalized = 1.0f;
+
+  // Create a color gradient: black -> blue -> purple -> red -> yellow
+  if (normalized < 0.25f) {
+    // Black to blue
+    float t = normalized / 0.25f;
+    return (Color){0, 0, (unsigned char)(t * 100), 255};
+  } else if (normalized < 0.5f) {
+    // Blue to purple
+    float t = (normalized - 0.25f) / 0.25f;
+    return (Color){(unsigned char)(t * 100), 0, (unsigned char)(100 + t * 55),
+                   255};
+  } else if (normalized < 0.75f) {
+    // Purple to red
+    float t = (normalized - 0.5f) / 0.25f;
+    return (Color){(unsigned char)(100 + t * 155), 0,
+                   (unsigned char)(155 - t * 155), 255};
+  } else {
+    // Red to yellow
+    float t = (normalized - 0.75f) / 0.25f;
+    return (Color){255, (unsigned char)(t * 200), 0, 255};
+  }
 }
 
 void setRadius(CelestialObject *obj) {
@@ -88,8 +145,7 @@ CelestialObject **generateRandomObjects(int count) {
     obj->mass = genRandomFloat(1000, 5000);
     setRadius(obj);
 
-    obj->color = (Color){genRandomInt(100, 255), genRandomInt(100, 255),
-                         genRandomInt(100, 255), 255};
+    obj->color = WHITE;
     list[i] = obj;
   }
 
@@ -120,7 +176,6 @@ void checkCollision(CelestialObject *obj1, CelestialObject *obj2) {
     float obj1Ratio = obj2->mass / totalMass;
     float obj2Ratio = obj1->mass / totalMass;
 
-    // Push objects apart
     obj1->pos = Vector2Subtract(obj1->pos,
                                 Vector2Scale(direction, overlap * obj1Ratio));
     obj2->pos =
@@ -129,10 +184,7 @@ void checkCollision(CelestialObject *obj1, CelestialObject *obj2) {
     Vector2 relativeVel = Vector2Subtract(obj2->vel, obj1->vel);
     float velAlongNormal = Vector2DotProduct(relativeVel, direction);
 
-    // Only apply impulse if objects are moving towards each other
     if (velAlongNormal < 0) {
-      // Coefficient of restitution (0 = perfectly inelastic, 1 = perfectly
-      // elastic)
       float restitution = 0.5f;
 
       float impulseScalar = -(1 + restitution) * velAlongNormal;
@@ -161,7 +213,6 @@ void interactGravity(CelestialObject *obj1, CelestialObject *obj2) {
   Vector2 distanceVec = Vector2Subtract(obj2->pos, obj1->pos);
   float distSqr = Vector2LengthSqr(distanceVec);
 
-  // Clamp minimum distance to prevent extreme forces
   float minDistSqr = MIN_DISTANCE * MIN_DISTANCE;
   if (distSqr < minDistSqr) {
     distSqr = minDistSqr;
